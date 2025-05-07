@@ -1,0 +1,5 @@
+{
+  "grpcClientAddress": "localhost:7206",
+  "httpPort": ":8080",
+  "dbConn": "host=localhost user=postgres password=secret dbname=messenger sslmode=disable"
+}

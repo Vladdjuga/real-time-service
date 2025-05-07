@@ -1,13 +1,19 @@
-﻿package models
+package models
 
 import (
 	"github.com/google/uuid"
-	"time"
 )
 
 type Message struct {
-	Content   string    `json:"content"`
-	UserId    uuid.UUID `json:"userId"`
-	ChatId    uuid.UUID `json:"chatId"`
-	Timestamp time.Time `json:"timestamp"`
+	Text   string    `json:"text"`
+	UserId uuid.UUID `json:"userId"`
+	ChatId uuid.UUID `json:"chatId"`
+}
+
+func NewMessage(text string, userId, chatId uuid.UUID) *Message {
+	return &Message{
+		Text:   text,
+		UserId: userId,
+		ChatId: chatId,
+	}
 }

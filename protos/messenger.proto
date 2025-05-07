@@ -1,0 +1,43 @@
+﻿syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+package messenger;
+option go_package = "gen/messengerpb;messengerpb";
+
+enum MessageStatus{
+  Read=0;
+  Sent=1;
+  Delivered=2;
+  Modified=3;
+}
+message GetMessageRequest{
+  string userId=1;
+  string chatId=2;
+  int32 count=3;
+}
+message MessageResponse{
+  string id=1;
+  google.protobuf.Timestamp sentAt=2;
+  google.protobuf.Timestamp receivedAt=3;
+  string text=4;
+  string userId=5;
+  string chatId=6;
+  MessageStatus status=7;
+}
+message GetMessageResponse{
+  repeated MessageResponse messages=1;
+}
+message SendMessageRequest{
+  google.protobuf.Timestamp sentAt=1;
+  string text=2;
+  string userId=3;
+  string chatId=4;
+}
+message SendMessageResponse{
+  string id=1;
+  bool success=2;
+}
+
+service Messenger{
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc GetMessage(GetMessageRequest) returns (GetMessageResponse);
+}
