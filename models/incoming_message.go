@@ -12,7 +12,6 @@ const (
 
 type IncomingMessage struct {
 	Type   Type      `json:"type"`
-	UserId uuid.UUID `json:"user_id"`
-	ChatId uuid.UUID `json:"chat_id"`
+	ChatId uuid.UUID `json:"chatId"`
 	Text   string    `json:"text"`
 }

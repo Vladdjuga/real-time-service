@@ -5,18 +5,21 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"log"
 	"realTimeService/models"
 	"sync"
 )
 
 type MainHub struct {
 	Clients map[uuid.UUID]*models.Client
+	Chats   map[uuid.UUID]*models.Chat
 	mut     sync.RWMutex
 }
 
 func NewMainHub() *MainHub {
 	return &MainHub{
 		Clients: make(map[uuid.UUID]*models.Client),
+		Chats:   make(map[uuid.UUID]*models.Chat),
 		mut:     sync.RWMutex{},
 	}
 }
@@ -36,7 +39,13 @@ func (h *MainHub) ConnectUserToChat(userId, chatId uuid.UUID) {
 	if !ok {
 		return
 	}
-	client.Chat = models.NewChat(chatId)
+	chat, ok := h.Chats[chatId]
+	if !ok {
+		chat = models.NewChat(chatId)
+		h.Chats[chatId] = chat
+	}
+	client.Chat = chat
+	chat.AddClient(client)
 }
 
 // DisconnectUserFromChat This function is used to remove a chatId from a client.
@@ -49,7 +58,12 @@ func (h *MainHub) DisconnectUserFromChat(userId uuid.UUID) {
 	if !ok {
 		return
 	}
+	chat, ok := h.Chats[client.Chat.ID]
+	if !ok {
+		return
+	}
 	client.Chat = nil
+	chat.RemoveClient(client)
 }
 
 func (h *MainHub) RemoveClient(userId uuid.UUID) {
@@ -66,22 +80,31 @@ func (h *MainHub) GetClient(userId uuid.UUID) *models.Client {
 	}
 	return client
 }
-func (h *MainHub) SendMessageToClient(userId uuid.UUID, message []byte) error {
+func (h *MainHub) SendMessageToChat(chatId uuid.UUID, message models.Message) error {
 	h.mut.RLock()
 	defer h.mut.RUnlock()
-	client, ok := h.Clients[userId]
+	chat, ok := h.Chats[chatId]
 	if !ok {
-		return fmt.Errorf("user not connected")
+		return fmt.Errorf("chat not found")
 	}
+	for _, client := range chat.Clients {
+		err := h.sendMessageToClientWithModel(client, message)
+		if err != nil {
+			err = fmt.Errorf("error sending message to client: %w", err)
+			log.Println(err)
+			continue
+		}
+	}
+	return nil
+}
+func (h *MainHub) sendMessageToClient(client *models.Client, message []byte) error {
+	h.mut.RLock()
+	defer h.mut.RUnlock()
 	return client.Conn.WriteMessage(websocket.TextMessage, message)
 }
-func (h *MainHub) SendMessageToClientWithModel(userId uuid.UUID, message models.Message) error {
+func (h *MainHub) sendMessageToClientWithModel(client *models.Client, message models.Message) error {
 	h.mut.RLock()
 	defer h.mut.RUnlock()
-	client, ok := h.Clients[userId]
-	if !ok {
-		return fmt.Errorf("user not connected")
-	}
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("error marshalling message: %w", err)

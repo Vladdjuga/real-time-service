@@ -24,13 +24,14 @@ func WsHandler(c *gin.Context, hub *hubs.MainHub, grpcClient *clients.MessageSer
 	// For this example, we assume the user is authenticated and has a userId.
 	userId := c.Query("userId")
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	var client models.Client
+	var client *models.Client
 	if err != nil {
 		log.Println("Write error:", err)
 		return
 	} else {
 		log.Println("Connected to websocket")
-		client = *models.NewClient(uuid.MustParse(userId), nil, conn)
+		client = models.NewClient(uuid.MustParse(userId), nil, conn)
+		hub.AddClient(client)
 	}
 	defer conn.Close()
 
@@ -47,7 +48,7 @@ func WsHandler(c *gin.Context, hub *hubs.MainHub, grpcClient *clients.MessageSer
 		HandleMessage(hub, grpcClient, client, msgBytes)
 	}
 }
-func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, clientModel models.Client, msg []byte) {
+func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, clientModel *models.Client, msg []byte) {
 	log.Println("Handle Message called.")
 	var input models.IncomingMessage
 	if err := json.Unmarshal(msg, &input); err != nil {
@@ -57,41 +58,73 @@ func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, 
 	// Switch type
 	switch input.Type {
 	case models.SendMessage:
-		log.Println("SendMessage type")
-		// Send message through WebSocket
-		chatId := clientModel.Chat.ID
-		userId := input.UserId
-		message := models.NewMessage(input.Text, userId, chatId)
-		err := hub.SendMessageToClientWithModel(userId, *message)
-		if err != nil {
+		if err := sendMessage(hub, grpcClient, clientModel, input); err != nil {
 			log.Println("Error sending message:", err)
 			return
 		}
-		// Send message to gRPC service
-		err = grpcClient.SendMessage(context.Background(), chatId.String(), userId.String(), input.Text)
-		if err != nil {
-			log.Println("Error sending message to gRPC service:", err)
-			return
-		}
-		log.Printf("Message sent to chat %s by user %s: %s", chatId, userId, input.Text)
-
 	case models.ConnectUserToChat:
-		log.Println("ConnectUserToChat type")
-		chatId, err := uuid.Parse(input.ChatId.String())
+		chatId, err := connectUserToChat(hub, input, clientModel)
 		if err != nil {
-			log.Println("Error parsing chatId:", err)
+			log.Println("Error connecting user to chat:", err)
 			return
 		}
-		hub.ConnectUserToChat(clientModel.UserId, chatId)
 		log.Printf("User %s connected to chat %s", clientModel.UserId, chatId)
 	case models.DisconnectUserFromChat:
-		log.Println("DisconnectUserFromChat type")
-		chatId, err := uuid.Parse(input.ChatId.String())
-		if err != nil {
-			log.Println("Error parsing chatId:", err)
+		if err := disconnectUserFromChat(hub, input, clientModel); err != nil {
+			log.Println("Error disconnecting user from chat:", err)
 			return
 		}
-		hub.DisconnectUserFromChat(clientModel.UserId)
-		log.Printf("User %s disconnected from chat %s", clientModel.UserId, chatId)
 	}
+}
+func sendMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient,
+	clientModel *models.Client, input models.IncomingMessage) error {
+	log.Println("SendMessage type")
+	// Check if the user is connected to a chat
+	// If not, connect the user to the chat
+	if clientModel.Chat == nil {
+		_, err := connectUserToChat(hub, input, clientModel)
+		if err != nil {
+			log.Println("Error connecting user to chat:", err)
+			return err
+		}
+	}
+	// Send message through WebSocket
+	chatId := clientModel.Chat.ID
+	message := models.NewMessage(input.Text, clientModel.UserId, chatId)
+	err := hub.SendMessageToChat(chatId, *message)
+	if err != nil {
+		log.Println("Error sending message:", err)
+		return err
+	}
+	// Send message to gRPC service
+	err = grpcClient.SendMessage(context.Background(), chatId.String(), clientModel.UserId.String(), input.Text)
+	if err != nil {
+		log.Println("Error sending message to gRPC service:", err)
+		return err
+	}
+	log.Printf("Message sent to chat %s by user %s: %s", chatId, clientModel.UserId, input.Text)
+	return nil
+}
+
+func disconnectUserFromChat(hub *hubs.MainHub, input models.IncomingMessage, clientModel *models.Client) error {
+	log.Println("DisconnectUserFromChat type")
+	chatId, err := uuid.Parse(input.ChatId.String())
+	if err != nil {
+		log.Println("Error parsing chatId:", err)
+		return err
+	}
+	hub.DisconnectUserFromChat(clientModel.UserId)
+	log.Printf("User %s disconnected from chat %s", clientModel.UserId, chatId)
+	return nil
+}
+
+func connectUserToChat(hub *hubs.MainHub, input models.IncomingMessage, clientModel *models.Client) (uuid.UUID, error) {
+	log.Println("ConnectUserToChat type")
+	chatId, err := uuid.Parse(input.ChatId.String())
+	if err != nil {
+		log.Println("Error parsing chatId:", err)
+		return uuid.UUID{}, err
+	}
+	hub.ConnectUserToChat(clientModel.UserId, chatId)
+	return chatId, nil
 }
