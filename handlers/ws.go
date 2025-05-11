@@ -19,10 +19,10 @@ var upgrader = websocket.Upgrader{
 
 func WsHandler(c *gin.Context, hub *hubs.MainHub, grpcClient *clients.MessageServiceClient) {
 	log.Println("WsHandler called.")
-	// This is a placeholder for authentication.
-	// In a real application, you would check the user's authentication token here.
-	// For this example, we assume the user is authenticated and has a userId.
-	userId := c.Query("userId")
+	// This userId is passed from the AuthMiddleware
+	// and is used to identify the user in the WebSocket connection.
+	userId := c.GetString("user_sub")
+	token := c.GetString("auth_token")
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	var client *models.Client
 	if err != nil {
@@ -45,10 +45,10 @@ func WsHandler(c *gin.Context, hub *hubs.MainHub, grpcClient *clients.MessageSer
 		}
 		log.Println("Message received:", string(msgBytes))
 		// Handle the message
-		HandleMessage(hub, grpcClient, client, msgBytes)
+		HandleMessage(hub, grpcClient, client, token, msgBytes)
 	}
 }
-func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, clientModel *models.Client, msg []byte) {
+func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, clientModel *models.Client, token string, msg []byte) {
 	log.Println("Handle Message called.")
 	var input models.IncomingMessage
 	if err := json.Unmarshal(msg, &input); err != nil {
@@ -58,7 +58,7 @@ func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, 
 	// Switch type
 	switch input.Type {
 	case models.SendMessage:
-		if err := sendMessage(hub, grpcClient, clientModel, input); err != nil {
+		if err := sendMessage(hub, grpcClient, clientModel, input, token); err != nil {
 			log.Println("Error sending message:", err)
 			return
 		}
@@ -77,7 +77,7 @@ func HandleMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient, 
 	}
 }
 func sendMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient,
-	clientModel *models.Client, input models.IncomingMessage) error {
+	clientModel *models.Client, input models.IncomingMessage, token string) error {
 	log.Println("SendMessage type")
 	// Check if the user is connected to a chat
 	// If not, connect the user to the chat
@@ -97,7 +97,7 @@ func sendMessage(hub *hubs.MainHub, grpcClient *clients.MessageServiceClient,
 		return err
 	}
 	// Send message to gRPC service
-	err = grpcClient.SendMessage(context.Background(), chatId.String(), clientModel.UserId.String(), input.Text)
+	err = grpcClient.SendMessage(context.Background(), chatId.String(), clientModel.UserId.String(), input.Text, token)
 	if err != nil {
 		log.Println("Error sending message to gRPC service:", err)
 		return err

@@ -1,4 +1,5 @@
 {
-  "grpcClientAddress": "localhost:7206",
-  "httpPort": ":8080"
+  "grpcClientAddress": "localhost:5000",
+  "httpPort": ":8080",
+  "secretKey": "a-string-secret-at-least-256-bits-long"
 }

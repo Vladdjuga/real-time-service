@@ -1,0 +1,15 @@
+﻿syntax = "proto3";
+package chat;
+option go_package = "gen/chatpb;chatpb";
+
+message UserChatExistsRequest {
+  string userId = 1;
+  string chatId = 2;
+}
+message UserChatExistsResponse {
+  bool exists = 1;
+}
+service ChatService {
+  rpc UserChatExists(UserChatExistsRequest) returns (UserChatExistsResponse);
+}
+

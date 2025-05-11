@@ -8,6 +8,7 @@ import (
 	"realTimeService/configuration"
 	"realTimeService/handlers"
 	"realTimeService/hubs"
+	"realTimeService/middlewares"
 )
 
 func main() {
@@ -24,14 +25,15 @@ func main() {
 		return
 	}
 	defer conn.Close()
-	grpcClient := clients.NewMessageServiceClient(conn)
-	if grpcClient == nil {
+	grpcMessagesClient := clients.NewMessageServiceClient(conn)
+	if grpcMessagesClient == nil {
 		log.Fatalf("gRPC client creation failed")
 		return
 	}
 	hub := hubs.NewMainHub()
-	router.GET("/ws", func(c *gin.Context) {
-		handlers.WsHandler(c, hub, grpcClient)
+	router.Use(gin.Recovery())
+	router.GET("/ws", middlewares.AuthMiddleware(cfg), func(c *gin.Context) {
+		handlers.WsHandler(c, hub, grpcMessagesClient)
 	})
 	err = router.Run(cfg.HttpPort)
 	if err != nil {

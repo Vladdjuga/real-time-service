@@ -3,6 +3,7 @@ package clients
 import (
 	"context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"realTimeService/gen/messengerpb"
 	"time"
@@ -18,8 +19,12 @@ func NewMessageServiceClient(conn *grpc.ClientConn) *MessageServiceClient {
 	}
 }
 
-func (m *MessageServiceClient) SendMessage(ctx context.Context, chatId, userId string, text string) error {
-	_, err := m.client.SendMessage(ctx,
+func (m *MessageServiceClient) SendMessage(ctx context.Context, chatId, userId string, text, authToken string) error {
+	md := metadata.New(map[string]string{
+		"authorization": "Bearer " + authToken,
+	})
+	ctxWithMetadata := metadata.NewOutgoingContext(ctx, md)
+	_, err := m.client.SendMessage(ctxWithMetadata,
 		&messengerpb.SendMessageRequest{
 			ChatId: chatId,
 			UserId: userId,
@@ -32,8 +37,12 @@ func (m *MessageServiceClient) SendMessage(ctx context.Context, chatId, userId s
 	}
 	return nil
 }
-func (m *MessageServiceClient) GetMessage(ctx context.Context, chatId, userId string) (*messengerpb.GetMessageResponse, error) {
-	resp, err := m.client.GetMessage(ctx,
+func (m *MessageServiceClient) GetMessage(ctx context.Context, chatId, userId, authToken string) (*messengerpb.GetMessageResponse, error) {
+	md := metadata.New(map[string]string{
+		"authorization": "Bearer " + authToken,
+	})
+	ctxWithMetadata := metadata.NewOutgoingContext(ctx, md)
+	resp, err := m.client.GetMessage(ctxWithMetadata,
 		&messengerpb.GetMessageRequest{
 			ChatId: chatId,
 			UserId: userId,
