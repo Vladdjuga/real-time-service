@@ -100,6 +100,7 @@ func (h *MainHub) SendMessageToChat(chatId uuid.UUID, message models.Message) er
 func (h *MainHub) sendMessageToClient(client *models.Client, message []byte) error {
 	h.mut.RLock()
 	defer h.mut.RUnlock()
+	log.Println("Sending message to client : ", client.UserId)
 	return client.Conn.WriteMessage(websocket.TextMessage, message)
 }
 func (h *MainHub) sendMessageToClientWithModel(client *models.Client, message models.Message) error {
@@ -109,5 +110,6 @@ func (h *MainHub) sendMessageToClientWithModel(client *models.Client, message mo
 	if err != nil {
 		return fmt.Errorf("error marshalling message: %w", err)
 	}
+	log.Println("Sending message to client : ", client.UserId)
 	return client.Conn.WriteMessage(websocket.TextMessage, messageBytes)
 }

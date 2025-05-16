@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	GrpcClientAddress string `json:"grpcClientAddress"`
-	HttpPort          string `json:"httpPort"`
-	DbConn            string `json:"dbConn"`
-	SecretKey         string `json:"secretKey"`
+	GrpcMessageClientAddress string `json:"grpcMessageClientAddress"`
+	GrpcChatClientAddress    string `json:"grpcChatClientAddress"`
+	HttpPort                 string `json:"httpPort"`
+	DbConn                   string `json:"dbConn"`
+	SecretKey                string `json:"secretKey"`
 }
 
 func LoadConfig(path string) (*Config, error) {
