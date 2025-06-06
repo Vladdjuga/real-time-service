@@ -69,7 +69,7 @@ func (d *DependencyInjectionContainer) Close() error {
 	return err2
 }
 func connectToGRPC(addr string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	log.Println("Connecting to gRPC server", addr)
 	conn, err := grpc.DialContext(
